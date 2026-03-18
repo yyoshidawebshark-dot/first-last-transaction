@@ -268,13 +268,20 @@
     <div class="hint-text">💡 月間モードでは複数日のCSVをまとめてドロップできます</div>
   </div>
 
-  <!-- エリアマネージャーフィルター -->
+  <!-- エリアマネージャー・委託先フィルター -->
   <div class="settings-panel" id="am-filter-panel" style="display:none;">
     <div class="settings-row">
       <div class="setting-group">
         <label>📍 エリアマネージャー</label>
         <select id="am-select" onchange="onAmChange()" style="background:var(--bg-sub);border:1.5px solid var(--border);border-radius:7px;padding:6px 11px;color:var(--dark);font-family:'Noto Sans JP',sans-serif;font-size:0.85rem;">
-          <option value="">🌐 全体（絞り込みなし）</option>
+          <option value="">🌐 全体</option>
+        </select>
+      </div>
+      <div class="setting-divider"></div>
+      <div class="setting-group">
+        <label>🏢 委託先</label>
+        <select id="sm-select" onchange="onSmChange()" style="background:var(--bg-sub);border:1.5px solid var(--border);border-radius:7px;padding:6px 11px;color:var(--dark);font-family:'Noto Sans JP',sans-serif;font-size:0.85rem;">
+          <option value="">全社</option>
         </select>
       </div>
     </div>
@@ -340,7 +347,7 @@ const SHOP_INFO_KEY = 'yogibo_shop_info_v1';
 const TXN_KEY       = 'yogibo_txn_data_v1';
 const TXN_INFO_KEY  = 'yogibo_txn_info_v1';
 const AM_KEY        = 'yogibo_am_map_v1';
-let shopData = null, txnFiles = [], txnCache = null, amMap = {};
+let shopData = null, txnFiles = [], txnCache = null, amMap = {}, smMap = {};
 let currentMode = 'daily';
 
 /* ── 初期化 ── */
@@ -483,14 +490,17 @@ async function loadShopFromSheet() {
     if (!data.length) throw new Error('データが空です');
     shopData = data;
 
-    // AMマップをshop_main_listから構築（A列=AM, D列=店舗コード）
-    amMap = {};
+    // AMマップ・SMマップをshop_main_listから構築
+    amMap = {}; smMap = {};
     for (const r of data) {
       const code = (r['店舗コード']||'').trim();
       const am   = (r['AM']||'').trim();
+      const sm   = (r['SM・委託先［開発］?店舗実績 CSVデータのダウンロード']||'').trim();
       if (code && am) amMap[code] = am;
+      if (code && sm) smMap[code] = sm;
     }
     try { localStorage.setItem(AM_KEY, JSON.stringify(amMap)); } catch(e) {}
+    try { localStorage.setItem('yogibo_sm_map_v1', JSON.stringify(smMap)); } catch(e) {}
     const now = new Date();
     const savedAt = toYMD(now)+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
     try {
@@ -511,6 +521,7 @@ async function loadShopFromSheet() {
         const info = JSON.parse(localStorage.getItem(SHOP_INFO_KEY)||'{}');
         // amMapもキャッシュから復元
         try { const am = localStorage.getItem(AM_KEY); if(am) amMap = JSON.parse(am); } catch(e2){}
+        try { const sm = localStorage.getItem('yogibo_sm_map_v1'); if(sm) smMap = JSON.parse(sm); } catch(e2){}
         updateShopBar(true, 'キャッシュ', shopData.length, info.savedAt);
         buildAmButtons();
         statusEl.style.color = 'var(--orange)';
@@ -806,7 +817,8 @@ function renderCards(id, ranking, type, mode) {
 /* ── チャット用テキスト ── */
 function buildText(first, last, periodLabel, topN, mode, amLabel='') {
   const modeLabel = mode==='monthly' ? '【月間】' : '';
-  const amTxt = amLabel ? `【${amLabel}エリア】` : '';
+  const smLabel = _selectedSM||'';
+  const amTxt = [amLabel ? amLabel+'エリア' : '', smLabel].filter(Boolean).map(s=>`【${s}】`).join('');
   let txt=`${modeLabel}${amTxt}【${periodLabel}】\n\n`;
   txt+=`━━━━━━━━━━━━━━━━━━\n🌅 ファーストレジランキング TOP${topN}\n━━━━━━━━━━━━━━━━━━\n\n`;
   first.forEach((t,i)=>{
@@ -837,24 +849,41 @@ function buildText(first, last, periodLabel, topN, mode, amLabel='') {
 let _lastFirst=[], _lastLast=[], _lastMode='daily', _selectedAM=null;
 
 // シート読み込み完了後にプルダウンを構築
+let _selectedSM = null;
+
 function buildAmButtons() {
   const allAMs = [...new Set(Object.values(amMap))].filter(Boolean).sort();
+  const allSMs = [...new Set(Object.values(smMap))].filter(Boolean).sort();
   const panel  = document.getElementById('am-filter-panel');
-  const sel    = document.getElementById('am-select');
-  // 既存オプションをリセット（全体オプションだけ残す）
-  sel.innerHTML = '<option value="">🌐 全体（絞り込みなし）</option>';
-  if (!allAMs.length) { panel.style.display='none'; return; }
+  const selAM  = document.getElementById('am-select');
+  const selSM  = document.getElementById('sm-select');
+
+  selAM.innerHTML = '<option value="">🌐 全体</option>';
+  selSM.innerHTML = '<option value="">全社</option>';
+
+  if (!allAMs.length && !allSMs.length) { panel.style.display='none'; return; }
   panel.style.display='block';
+
   allAMs.forEach(am => {
     const opt = document.createElement('option');
     opt.value = am; opt.textContent = '👤 ' + am;
-    sel.appendChild(opt);
+    selAM.appendChild(opt);
+  });
+  allSMs.forEach(sm => {
+    const opt = document.createElement('option');
+    opt.value = sm; opt.textContent = sm;
+    selSM.appendChild(opt);
   });
 }
 
 function onAmChange() {
   _selectedAM = document.getElementById('am-select').value || null;
-  if (_lastFirst.length) applyAmFilter(); // ランキング生成済みなら即反映
+  if (_lastFirst.length) applyAmFilter();
+}
+
+function onSmChange() {
+  _selectedSM = document.getElementById('sm-select').value || null;
+  if (_lastFirst.length) applyAmFilter();
 }
 
 // ランキング結果をAMフィルターで絞り込んで表示
@@ -863,13 +892,18 @@ function applyAmFilter() {
   const topN_el = document.getElementById(_lastMode==='daily' ? 'top-n-daily' : 'top-n-monthly');
   const topN = Math.max(1, parseInt(topN_el.value)||10);
 
-  const srcFirst = am ? _lastFirst.filter(t=>(amMap[t.storeCode]||'')===am) : _lastFirst;
-  const srcLast  = am ? _lastLast .filter(t=>(amMap[t.storeCode]||'')===am) : _lastLast;
+  const sm = _selectedSM;
+  const srcFirst = _lastFirst
+    .filter(t=> (!am || (amMap[t.storeCode]||'')===am))
+    .filter(t=> (!sm || (smMap[t.storeCode]||'')===sm));
+  const srcLast  = _lastLast
+    .filter(t=> (!am || (amMap[t.storeCode]||'')===am))
+    .filter(t=> (!sm || (smMap[t.storeCode]||'')===sm));
 
   const first = [...srcFirst].sort((a,b)=>a.afterOpen-b.afterOpen).slice(0,topN);
   const last  = [...srcLast ].sort((a,b)=>a.beforeClose-b.beforeClose).slice(0,topN);
 
-  const label = am || '';
+  const label = [am, sm].filter(Boolean).join('／');
   document.getElementById('first-label').textContent =
     `🌅 ${label ? label+' ' : ''}ファーストレジ TOP${topN}${_lastMode==='monthly'?'（月間）':''}`;
   document.getElementById('last-label').textContent =
