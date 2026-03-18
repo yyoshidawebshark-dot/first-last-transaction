@@ -157,7 +157,7 @@
   .rank-diff.late  { color:var(--blue); }
   .rank-diff.monthly { color:var(--mid); }
   .rank-staff { font-size:0.86rem; font-weight:500; color:var(--text); margin-top:3px; }
-  .rank-store { font-size:0.74rem; color:var(--mid); }
+  .rank-store { font-size:0.74rem; color:var(--mid); font-weight:400; }
   .rank-amount { text-align:right; font-family:'DM Mono',monospace; font-size:0.93rem; font-weight:500; color:var(--dark); white-space:nowrap; }
 
   /* ── TEXT OUTPUT ── */
@@ -674,7 +674,7 @@ function runDaily(txnMap, shopMap, hoursMap) {
   }).filter(t=>t.txMin>=t.opMin); // 開店前を除外
 
   const first=[...enriched].sort((a,b)=>a.afterOpen-b.afterOpen).slice(0,topN);
-  const last =[...enriched].sort((a,b)=>b.txMin-a.txMin).slice(0,topN);
+  const last =[...enriched].sort((a,b)=>a.beforeClose-b.beforeClose).slice(0,topN);
 
   document.getElementById('first-label').textContent=`🌅 ファーストレジ TOP${topN}`;
   document.getElementById('last-label').textContent=`🌙 ラストレジ TOP${topN}`;
@@ -722,14 +722,14 @@ function runMonthly(txnMap, shopMap, hoursMap) {
     if (!staffFirst[key] || afterOpen < staffFirst[key].afterOpen) {
       staffFirst[key] = {...t, storeName:shopMap[t.storeCode]||t.storeCode, openTime:hrs.open, closeTime:hrs.close, txMin, opMin, clMin, afterOpen, beforeClose};
     }
-    // ラスト：txMinが最大のものを記録
-    if (!staffLast[key] || txMin > staffLast[key].txMin) {
+    // ラスト：beforeCloseが最小のものを記録（閉店に最も近い取引）
+    if (!staffLast[key] || beforeClose < staffLast[key].beforeClose) {
       staffLast[key] = {...t, storeName:shopMap[t.storeCode]||t.storeCode, openTime:hrs.open, closeTime:hrs.close, txMin, opMin, clMin, afterOpen, beforeClose};
     }
   }
 
   const first = Object.values(staffFirst).sort((a,b)=>a.afterOpen-b.afterOpen).slice(0,topN);
-  const last  = Object.values(staffLast ).sort((a,b)=>b.txMin-a.txMin).slice(0,topN);
+  const last  = Object.values(staffLast ).sort((a,b)=>a.beforeClose-b.beforeClose).slice(0,topN);
 
   const periodLabel = startPfx.slice(0,7).replace('/','/') + ' 〜 ' + endPfx;
   document.getElementById('first-label').textContent=`🌅 ファーストレジ TOP${topN}（月間）`;
@@ -785,7 +785,7 @@ function renderCards(id, ranking, type, mode) {
       diffTxt=d<0?`閉店${-d}分後`:d===0?'閉店時刻ちょうど':`閉店${d}分前`;
       diffCls='late';
     }
-    if (mode==='monthly') diffCls='monthly'; // 月間は色を抑える
+    if (mode==='monthly') diffCls='monthly';
     const timeStr=t.datetime.split(' ')[1]?.slice(0,5)||'--:--';
     const dateStr=mode==='monthly' ? t.datetime.slice(0,10)+' ' : '';
     const card=document.createElement('div');
@@ -794,10 +794,8 @@ function renderCards(id, ranking, type, mode) {
     card.innerHTML=`
       <div class="rank-badge">${isTop3?`<span class="rank-emoji">${emoji}</span>`:String(rank)}</div>
       <div class="rank-info">
-        <div class="rank-time">${dateStr}${timeStr}</div>
-        <div class="rank-diff ${diffCls}">${diffTxt}　（${t.openTime}〜${t.closeTime}）</div>
-        <div class="rank-staff">${t.staff}</div>
-        <div class="rank-store">${t.storeName}</div>
+        <div class="rank-time">${dateStr}${timeStr}　<span class="rank-diff ${diffCls}">${diffTxt}　（${t.openTime}〜${t.closeTime}）</span></div>
+        <div class="rank-staff">${t.staff}　<span class="rank-store">${t.storeName}</span></div>
       </div>
       <div class="rank-amount">${t.amount.toLocaleString()}円</div>
     `;
@@ -818,9 +816,8 @@ function buildText(first, last, periodLabel, topN, mode, amLabel='') {
     const diffTxt=d<0?`開店${-d}分前`:d===0?'開店時刻ちょうど':`開店${d}分後`;
     const timeStr=t.datetime.split(' ')[1]?.slice(0,5)||'--:--';
     const datePrefix = mode==='monthly' ? t.datetime.slice(0,10)+' ' : '';
-    txt+=`${medal} ${String(rank).padStart(2)}位：${datePrefix}${timeStr}（${diffTxt}）\n`;
-    txt+=`${t.staff}　${t.amount.toLocaleString()}円\n`;
-    txt+=`${t.storeName}\n\n`;
+    txt+=`${medal} ${String(rank).padStart(2)}位：${t.staff}　${t.storeName}\n`;
+    txt+=`${diffTxt}（${datePrefix}${timeStr}／${t.amount.toLocaleString()}円）\n\n`;
   });
   txt+=`━━━━━━━━━━━━━━━━━━\n🌙 ラストレジランキング TOP${topN}\n━━━━━━━━━━━━━━━━━━\n\n`;
   last.forEach((t,i)=>{
@@ -830,9 +827,8 @@ function buildText(first, last, periodLabel, topN, mode, amLabel='') {
     const diffTxt=d<0?`閉店${-d}分後`:d===0?'閉店時刻ちょうど':`閉店${d}分前`;
     const timeStr=t.datetime.split(' ')[1]?.slice(0,5)||'--:--';
     const datePrefix = mode==='monthly' ? t.datetime.slice(0,10)+' ' : '';
-    txt+=`${medal} ${String(rank).padStart(2)}位：${datePrefix}${timeStr}（${diffTxt}）\n`;
-    txt+=`${t.staff}　${t.amount.toLocaleString()}円\n`;
-    txt+=`${t.storeName}\n\n`;
+    txt+=`${medal} ${String(rank).padStart(2)}位：${t.staff}　${t.storeName}\n`;
+    txt+=`${diffTxt}（${datePrefix}${timeStr}／${t.amount.toLocaleString()}円）\n\n`;
   });
   document.getElementById('text-output').textContent=txt;
 }
@@ -871,7 +867,7 @@ function applyAmFilter() {
   const srcLast  = am ? _lastLast .filter(t=>(amMap[t.storeCode]||'')===am) : _lastLast;
 
   const first = [...srcFirst].sort((a,b)=>a.afterOpen-b.afterOpen).slice(0,topN);
-  const last  = [...srcLast ].sort((a,b)=>b.txMin-a.txMin).slice(0,topN);
+  const last  = [...srcLast ].sort((a,b)=>a.beforeClose-b.beforeClose).slice(0,topN);
 
   const label = am || '';
   document.getElementById('first-label').textContent =
