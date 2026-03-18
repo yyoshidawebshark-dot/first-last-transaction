@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yogibo レジランキング</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg:       #ffffff;
+    --bg-sub:   #f5fafb;
+    --blue:     #58b5ca;
+    --blue-lt:  #e1f2f7;
+    --orange:   #f3a359;
+    --orange-lt:#fcde9c;
+    --text:     #3b484e;
+    --dark:     #3F484F;
+    --mid:      #606970;
+    --light:    #eeece1;
+    --border:   #dde8ec;
+    --green:    #5aaa80;
+    --red-soft: #e07a5f;
+    --gold:     #e8a020;
+    --silver:   #8a9ba3;
+    --bronze:   #b07850;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Noto Sans JP',sans-serif; background:var(--bg-sub); color:var(--text); min-height:100vh; }
+
+  /* ── HEADER ── */
+  .header { position:relative; background:var(--bg); border-bottom:2px solid var(--blue-lt); text-align:center; padding:28px 20px 22px; }
+  .header-sub { font-size:0.75rem; font-weight:400; letter-spacing:5px; color:var(--mid); text-transform:uppercase; }
+  /* ── LOGO + TEDDY ── */
+  .logo-wrap {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 10px;
+  }
+  .logo-wrap img.logo {
+    height: 60px;
+    width: auto;
+    display: block;
+  }
+  .teddy-wrap {
+    position: absolute;
+    left: 100%;
+    bottom: -8px;
+    margin-left: 8px;
+    width: 90px;
+    pointer-events: none;
+    z-index: 20;
+  }
+  .teddy-wrap img {
+    width: 90px;
+    height: auto;
+    display: block;
+    animation: teddyBounce 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
+    transform-origin: bottom center;
+  }
+  @keyframes teddyBounce {
+    0%   { transform: translateY(110%); opacity: 0; }
+    60%  { transform: translateY(-10%); opacity: 1; }
+    80%  { transform: translateY(5%); }
+    100% { transform: translateY(0); }
+  }
+
+  .date-badge { display:inline-block; margin-top:10px; padding:3px 14px; background:var(--blue-lt); border-radius:20px; font-size:0.76rem; color:var(--blue); font-family:'DM Mono',monospace; font-weight:500; }
+
+  /* ── MAIN ── */
+  .main { max-width:820px; margin:28px auto; padding:0 20px; }
+
+  /* ── 店舗マスター バー ── */
+  .shop-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; border-radius:10px; padding:11px 16px; margin-bottom:10px; border:1px solid; transition:all 0.3s; }
+  .shop-bar.ok { background:#f0faf5; border-color:rgba(90,170,128,0.35); }
+  .shop-bar.ng { background:#fff8f0; border-color:rgba(240,130,90,0.3); }
+  .shop-bar-left { display:flex; align-items:center; gap:10px; }
+  .dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .ok .dot { background:var(--green); }
+  .ng .dot { background:var(--orange); }
+  .bar-label { font-size:0.85rem; font-weight:500; color:var(--dark); }
+  .bar-sub   { font-size:0.7rem; color:var(--mid); margin-top:1px; }
+  .shop-toggle-btn { position:relative; z-index:10; padding:5px 13px; background:transparent; border:1px solid; border-radius:6px; font-family:'Noto Sans JP',sans-serif; font-size:0.76rem; cursor:pointer; white-space:nowrap; transition:all 0.2s; }
+  .ok .shop-toggle-btn { border-color:rgba(90,170,128,0.5); color:var(--green); }
+  .ok .shop-toggle-btn:hover { background:#e8f7ef; }
+  .ng .shop-toggle-btn { border-color:rgba(240,130,90,0.5); color:var(--orange); }
+  .ng .shop-toggle-btn:hover { background:#fff0e4; }
+
+  /* ── 店舗パネル ── */
+  .shop-panel { display:none; background:#f8fdfe; border:1px dashed rgba(88,181,202,0.4); border-radius:10px; padding:16px; margin-bottom:12px; }
+  .shop-panel.open { display:block; }
+  .panel-title { font-size:0.74rem; color:var(--mid); letter-spacing:1px; text-transform:uppercase; margin-bottom:10px; }
+
+  /* ── アップロードカード ── */
+  .upload-card { position:relative; background:var(--bg); border:1.5px dashed var(--border); border-radius:10px; padding:18px; text-align:center; cursor:pointer; transition:all 0.25s; }
+  .upload-card:hover { border-color:var(--blue); background:var(--blue-lt); }
+  .upload-card.loaded { border-style:solid; border-color:var(--green); background:#f0faf5; }
+  .upload-card input[type="file"] { position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:1; }
+  .upload-icon   { font-size:1.6rem; margin-bottom:5px; }
+  .upload-label  { font-size:0.8rem; font-weight:700; letter-spacing:1px; color:var(--mid); text-transform:uppercase; }
+  .upload-desc   { font-size:0.7rem; color:var(--mid); margin-top:2px; }
+  .upload-status { font-size:0.76rem; margin-top:5px; font-weight:500; }
+
+  .section-label { font-size:0.74rem; color:var(--mid); letter-spacing:1px; text-transform:uppercase; margin:14px 0 8px; }
+
+  /* ── モード切替タブ ── */
+  .mode-tabs { display:flex; gap:8px; margin:14px 0 0; }
+  .mode-tab { flex:1; padding:10px; border:1.5px solid var(--border); border-radius:8px; background:var(--bg); color:var(--mid); font-family:'Noto Sans JP',sans-serif; font-size:0.85rem; font-weight:500; cursor:pointer; text-align:center; transition:all 0.2s; }
+  .mode-tab.active { border-color:var(--blue); color:var(--blue); background:var(--blue-lt); }
+
+  /* ── 設定パネル（日次 / 月間） ── */
+  .settings-panel { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin:10px 0; }
+  .settings-row { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .setting-group { display:flex; align-items:center; gap:8px; }
+  .setting-group label { font-size:0.82rem; color:var(--mid); white-space:nowrap; }
+  .setting-group input[type="date"],
+  .setting-group select,
+  .setting-group input[type="number"] { background:var(--bg-sub); border:1.5px solid var(--border); border-radius:7px; padding:6px 11px; color:var(--dark); font-family:'DM Mono',monospace; font-size:0.85rem; }
+  .setting-group input[type="number"] { width:70px; text-align:center; }
+  .setting-group input:focus, .setting-group select:focus { outline:none; border-color:var(--blue); }
+  .setting-divider { width:1px; height:24px; background:var(--border); }
+  .hint-text { font-size:0.72rem; color:var(--mid); margin-top:8px; }
+
+  /* ── 実行ボタン ── */
+  .run-btn { width:100%; padding:15px; background:var(--blue); color:white; border:none; border-radius:10px; font-family:'Noto Sans JP',sans-serif; font-size:0.97rem; font-weight:700; letter-spacing:2px; cursor:pointer; transition:all 0.25s; position:relative; overflow:hidden; margin-top:10px; box-shadow:0 3px 12px rgba(88,181,202,0.3); }
+  .run-btn::before { content:''; position:absolute; inset:0; background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.15) 50%,transparent 100%); transform:translateX(-100%); transition:transform 0.5s; }
+  .run-btn:hover::before { transform:translateX(100%); }
+  .run-btn:hover { background:#46a0b5; transform:translateY(-1px); box-shadow:0 6px 18px rgba(88,181,202,0.4); }
+  .run-btn:disabled { background:#c5d8de; cursor:not-allowed; transform:none; box-shadow:none; }
+
+  .error-msg { background:#fff5f0; border:1px solid rgba(224,122,95,0.35); border-radius:8px; padding:12px 16px; margin-top:12px; font-size:0.85rem; color:var(--red-soft); display:none; }
+
+  /* ── RESULTS ── */
+  #results { max-width:820px; margin:0 auto; padding:0 20px 60px; display:none; }
+  .results-inner { border-top:2px solid var(--blue-lt); padding-top:28px; }
+
+  .rank-section-title { display:flex; align-items:center; gap:14px; margin:28px 0 12px; }
+  .rank-section-title .label { font-size:0.72rem; font-weight:700; letter-spacing:3px; text-transform:uppercase; padding:4px 12px; border-radius:20px; white-space:nowrap; }
+  .rank-section-title.first .label { background:#fff3e6; color:var(--orange); }
+  .rank-section-title.last  .label { background:var(--blue-lt); color:var(--blue); }
+  .rank-section-title .line { flex:1; height:1px; background:var(--border); }
+
+  /* ── RANK CARD ── */
+  .rank-card { display:grid; grid-template-columns:48px 1fr auto; align-items:center; gap:14px; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:6px; transition:all 0.2s; animation:slideIn 0.3s ease both; box-shadow:0 1px 4px rgba(60,80,90,0.05); }
+  .rank-card:hover { border-color:var(--blue); box-shadow:0 3px 12px rgba(88,181,202,0.12); transform:translateX(3px); }
+  .rank-card.rank-1 { border-color:rgba(232,160,32,0.5); background:#fffdf0; }
+  .rank-card.rank-2 { border-color:rgba(138,155,163,0.4); background:#fafbfb; }
+  .rank-card.rank-3 { border-color:rgba(176,120,80,0.35); background:#fdfaf7; }
+  @keyframes slideIn { from{opacity:0;transform:translateX(-14px)} to{opacity:1;transform:translateX(0)} }
+
+  .rank-badge { text-align:center; font-family:'DM Mono',monospace; font-size:0.85rem; font-weight:500; color:var(--mid); }
+  .rank-emoji { font-size:1.3rem; display:block; line-height:1; }
+  .rank-info { min-width:0; }
+  .rank-time  { font-family:'DM Mono',monospace; font-size:1.05rem; font-weight:500; color:var(--dark); }
+  .rank-diff  { font-size:0.72rem; margin-top:1px; }
+  .rank-diff.early { color:var(--orange); }
+  .rank-diff.late  { color:var(--blue); }
+  .rank-diff.monthly { color:var(--mid); }
+  .rank-staff { font-size:0.86rem; font-weight:500; color:var(--text); margin-top:3px; }
+  .rank-store { font-size:0.74rem; color:var(--mid); }
+  .rank-amount { text-align:right; font-family:'DM Mono',monospace; font-size:0.93rem; font-weight:500; color:var(--dark); white-space:nowrap; }
+
+  /* ── TEXT OUTPUT ── */
+  .text-section { margin-top:32px; }
+  .text-header  { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .text-title   { font-size:0.74rem; color:var(--mid); text-transform:uppercase; letter-spacing:2px; }
+  .copy-btn { padding:5px 14px; background:transparent; border:1px solid var(--border); border-radius:6px; color:var(--mid); font-family:'Noto Sans JP',sans-serif; font-size:0.78rem; cursor:pointer; transition:all 0.2s; }
+  .copy-btn:hover  { border-color:var(--blue); color:var(--blue); }
+  .copy-btn.copied { border-color:var(--green); color:var(--green); }
+  .text-output { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:18px 20px; font-family:'Noto Sans JP',sans-serif; font-size:0.86rem; line-height:1.9; white-space:pre-wrap; word-break:break-all; max-height:460px; overflow-y:auto; color:var(--text); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo-wrap">
+    <img class="logo" src="https://drive.google.com/thumbnail?id=1K2yM1E8s1LyDRgRC_-cVdtVUC7tPFfUB&sz=w600" alt="Yogibo">
+    <div class="teddy-wrap">
+      <img src="https://drive.google.com/thumbnail?id=1cExGKQiJ9-lLWQ4V-cagujdtB5dzO7Rt&sz=w200" alt="Teddy">
+    </div>
+  </div>
+  <div class="header-sub" id="header-sub">ファースト &amp; ラスト レジ ランキング</div>
+  <span class="date-badge" id="today-badge"></span>
+</div>
+
+<div class="main">
+
+  <div class="shop-bar ng" id="shop-bar">
+    <div class="shop-bar-left">
+      <div class="dot"></div>
+      <div>
+        <div class="bar-label" id="bar-label">店舗マスター：未登録</div>
+        <div class="bar-sub"   id="bar-sub">shop_main_list～.csv を最初に一度だけ登録してください</div>
+      </div>
+    </div>
+    <button type="button" class="shop-toggle-btn" id="shop-toggle-btn" onclick="toggleShopPanel()">📂 登録する</button>
+  </div>
+
+  <!-- 店舗マスター（スプレッドシート自動読込） -->
+  <div class="shop-panel" id="shop-panel">
+    <div class="panel-title">🏪 店舗マスター</div>
+    <div style="font-size:0.78rem;color:var(--mid);margin-bottom:8px;">Googleスプレッドシートから自動取得しています</div>
+    <button type="button" class="run-btn" style="margin-top:0;padding:10px;font-size:0.85rem;letter-spacing:1px;" onclick="loadShopFromSheet()">🔄 今すぐ再読込</button>
+    <div id="status-shop" style="font-size:0.76rem;margin-top:8px;color:var(--mid);"></div>
+  </div>
+
+  <div class="section-label">💳 取引データ</div>
+  <div class="upload-card" id="card-txn">
+    <input type="file" id="file-txn" accept=".csv" multiple>
+    <div class="upload-icon">📊</div>
+    <div class="upload-label">取引データ CSV</div>
+    <div class="upload-desc">取引データ_取引日時～.csv（複数選択可）</div>
+    <div class="upload-status" id="status-txn" style="color:var(--mid)">クリックまたはドロップ</div>
+  </div>
+
+  <div class="mode-tabs">
+    <button type="button" class="mode-tab active" id="tab-daily"   onclick="switchMode('daily')">📅 日次ランキング</button>
+    <button type="button" class="mode-tab"        id="tab-monthly" onclick="switchMode('monthly')">📆 月間ランキング</button>
+  </div>
+
+  <div class="settings-panel" id="panel-daily">
+    <div class="settings-row">
+      <div class="setting-group">
+        <label>📅 対象日</label>
+        <input type="date" id="target-date">
+      </div>
+      <div class="setting-divider"></div>
+      <div class="setting-group">
+        <label>曜日区分</label>
+        <select id="day-type">
+          <option value="auto">自動判定</option>
+          <option value="weekday">平日</option>
+          <option value="weekend">土日祝</option>
+          <option value="saturday">土曜</option>
+        </select>
+      </div>
+      <div class="setting-divider"></div>
+      <div class="setting-group">
+        <label>🏅 表示件数</label>
+        <input type="number" id="top-n-daily" value="10" min="1" max="99">
+        <label>件</label>
+      </div>
+    </div>
+    <div class="hint-text">💡 対象日はデータを出す前日に自動設定されます</div>
+  </div>
+
+  <div class="settings-panel" id="panel-monthly" style="display:none;">
+    <div class="settings-row">
+      <div class="setting-group">
+        <label>📅 開始日</label>
+        <input type="date" id="start-date">
+      </div>
+      <div class="setting-group">
+        <label>〜 終了日</label>
+        <input type="date" id="end-date">
+      </div>
+      <div class="setting-divider"></div>
+      <div class="setting-group">
+        <label>🏅 表示件数</label>
+        <input type="number" id="top-n-monthly" value="20" min="1" max="99">
+        <label>件</label>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+      <button type="button" class="mode-tab" style="flex:none;padding:5px 14px;font-size:0.78rem;" onclick="setMonthRange(0)">今月</button>
+      <button type="button" class="mode-tab" style="flex:none;padding:5px 14px;font-size:0.78rem;" onclick="setMonthRange(-1)">先月</button>
+    </div>
+    <div class="hint-text">💡 月間モードでは複数日のCSVをまとめてドロップできます</div>
+  </div>
+
+  <!-- エリアマネージャーフィルター -->
+  <div id="am-debug-out" style="display:none;background:#fffbe6;border:1px solid #e8a020;border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:0.75rem;font-family:monospace;white-space:pre-wrap;word-break:break-all;"></div>
+  <div class="settings-panel" id="am-filter-panel" style="display:none;">
+    <div class="settings-row">
+      <div class="setting-group">
+        <label>📍 エリアマネージャー</label>
+        <select id="am-select" onchange="onAmChange()" style="background:var(--bg-sub);border:1.5px solid var(--border);border-radius:7px;padding:6px 11px;color:var(--dark);font-family:'Noto Sans JP',sans-serif;font-size:0.85rem;">
+          <option value="">🌐 全体（絞り込みなし）</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <button type="button" class="run-btn" id="run-btn" onclick="runRanking()" disabled>
+    🏆　ランキングを生成する
+  </button>
+  <div class="error-msg" id="error-msg"></div>
+</div>
+
+<div id="results">
+  <div style="max-width:820px;margin:0 auto;padding:0 20px 60px;">
+    <div class="results-inner">
+      <div class="rank-section-title first">
+        <span class="label" id="first-label">🌅 ファーストレジ TOP10</span>
+        <div class="line"></div>
+      </div>
+      <div id="first-list"></div>
+
+      <div class="rank-section-title last">
+        <span class="label" id="last-label">🌙 ラストレジ TOP10</span>
+        <div class="line"></div>
+      </div>
+      <div id="last-list"></div>
+
+      <div class="text-section">
+        <div class="text-header">
+          <span class="text-title">📋 チャット投稿用テキスト</span>
+          <button type="button" class="copy-btn" id="copy-btn" onclick="copyText()">コピー</button>
+        </div>
+        <div class="text-output" id="text-output"></div>
+      </div>
+
+      <!-- デバッグ：営業時間確認パネル -->
+      <div id="debug-panel" style="display:none; margin-top:32px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:0.74rem;color:var(--mid);text-transform:uppercase;letter-spacing:2px;">🔍 営業時間 読み込み確認（全店舗）</span>
+          <button type="button" class="copy-btn" onclick="document.getElementById('debug-panel').style.display='none'">閉じる</button>
+        </div>
+        <div id="debug-table" style="background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:auto;max-height:400px;">
+          <table style="width:100%;border-collapse:collapse;font-size:0.78rem;font-family:'DM Mono',monospace;">
+            <thead>
+              <tr style="background:var(--bg-sub);position:sticky;top:0;">
+                <th style="padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);color:var(--mid);">店舗コード</th>
+                <th style="padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);color:var(--mid);">店舗名</th>
+                <th style="padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);color:var(--mid);">CSVの生データ</th>
+                <th style="padding:8px 12px;text-align:center;border-bottom:1px solid var(--border);color:var(--mid);">解析結果</th>
+              </tr>
+            </thead>
+            <tbody id="debug-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SHEET_CSV_URL  = 'https://docs.google.com/spreadsheets/d/1dSoL_FNQGgBIFFXBezkF5h3WIERyqIgoY0UxexnkyXc/export?format=csv&gid=956725242';
+const SHOP_KEY      = 'yogibo_shop_master_v1';
+const SHOP_INFO_KEY = 'yogibo_shop_info_v1';
+const TXN_KEY       = 'yogibo_txn_data_v1';
+const TXN_INFO_KEY  = 'yogibo_txn_info_v1';
+const AM_KEY        = 'yogibo_am_map_v1';
+let shopData = null, txnFiles = [], txnCache = null, amMap = {}, _amDebugMsg = '';
+let currentMode = 'daily';
+
+/* ── 初期化 ── */
+(function init() {
+  const today = new Date();
+  // 対象日 = 前日
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const ymd = toYMD(yesterday);
+  document.getElementById('today-badge').textContent = today.getFullYear()+'/'+(today.getMonth()+1).toString().padStart(2,'0')+'/'+today.getDate().toString().padStart(2,'0');
+  document.getElementById('target-date').value = ymd;
+  // 月間デフォルト = 今月1日〜昨日
+  const m0 = new Date(today.getFullYear(), today.getMonth(), 1);
+  document.getElementById('start-date').value = toYMD(m0);
+  document.getElementById('end-date').value   = ymd;
+
+  // 起動時に常にスプレッドシートから最新データを読込
+  loadShopFromSheet();
+
+  // 取引データ復元
+  try {
+    const raw = localStorage.getItem(TXN_KEY);
+    if (raw) {
+      txnCache = JSON.parse(raw);
+      const info = JSON.parse(localStorage.getItem(TXN_INFO_KEY)||'{}');
+      updateTxnCard(info.label, info.savedAt);
+    }
+  } catch(e) { localStorage.removeItem(TXN_KEY); localStorage.removeItem(TXN_INFO_KEY); }
+  checkReady();
+})();
+
+function toYMD(d) {
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+/* ── 店舗マスターバー ── */
+function updateShopBar(ok, filename, count, savedAt) {
+  const bar = document.getElementById('shop-bar');
+  if (ok) {
+    bar.className='shop-bar ok';
+    document.getElementById('bar-label').textContent='店舗マスター：読込済み（'+count+'店舗）';
+    document.getElementById('bar-sub').textContent=(filename||'')+(savedAt?'　取得：'+savedAt:'');
+    document.getElementById('shop-toggle-btn').textContent='🔄 再読込';
+  } else {
+    bar.className='shop-bar ng';
+    document.getElementById('bar-label').textContent='店舗マスター：読込中...';
+    document.getElementById('bar-sub').textContent='スプレッドシートから取得しています';
+    document.getElementById('shop-toggle-btn').textContent='🔄 再読込';
+  }
+}
+function toggleShopPanel() {
+  document.getElementById('shop-panel').classList.toggle('open');
+}
+
+/* ── モード切替 ── */
+function switchMode(mode) {
+  currentMode = mode;
+  document.getElementById('tab-daily').classList.toggle('active', mode==='daily');
+  document.getElementById('tab-monthly').classList.toggle('active', mode==='monthly');
+  document.getElementById('panel-daily').style.display   = mode==='daily'   ? '' : 'none';
+  document.getElementById('panel-monthly').style.display = mode==='monthly' ? '' : 'none';
+  if (txnFiles.length) {
+    document.getElementById('status-txn').textContent = '✅ '+txnFiles.length+'ファイル読込済み';
+  }
+}
+
+/* ── 月間ショートカット ── */
+function setMonthRange(offset) {
+  const today = new Date();
+  const y = today.getFullYear(), m = today.getMonth() + offset;
+  const first = new Date(y, m, 1);
+  const last  = new Date(y, m+1, 0);
+  document.getElementById('start-date').value = toYMD(first);
+  const cap = new Date(Math.min(last, new Date(today.getFullYear(), today.getMonth(), today.getDate()-1)));
+  document.getElementById('end-date').value = toYMD(offset===0 ? cap : last);
+}
+
+/* ── CSV 読み込み ── */
+function decodeJP(buf) {
+  for (const enc of ['shift-jis','utf-8']) {
+    try { return new TextDecoder(enc).decode(buf); } catch(e) {}
+  }
+  return '';
+}
+function parseCSV(text, hasHeader=true) {
+  // セル内改行（ダブルクォート内の\n）を正しく処理してレコード配列に分割
+  // \r\n / \n / \r すべての改行に対応
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const records = [];
+  let cur = '', inQ = false;
+  const cells = [];
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') {
+      if (inQ && text[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (c === ',' && !inQ) {
+      cells.push(cur.trim()); cur = '';
+    } else if (c === '\n' && !inQ) {
+      cells.push(cur.trim()); cur = '';
+      if (cells.some(v => v)) records.push([...cells]);
+      cells.length = 0;
+    } else {
+      cur += c;
+    }
+  }
+  cells.push(cur.trim());
+  if (cells.some(v => v)) records.push([...cells]);
+
+  if (!records.length) return [];
+  const start = hasHeader ? 1 : 0;
+  const hdrs  = hasHeader ? records[0] : [];
+  return records.slice(start).map(vals => {
+    const obj = {};
+    vals.forEach((v, i) => { obj['_' + i] = v; });
+    if (hasHeader) hdrs.forEach((h, i) => { obj[h] = (vals[i] || ''); });
+    return obj;
+  }).filter(r => Object.values(r).some(v => v));
+}
+function readFileAsync(file, hasHeader=true) {
+  return new Promise(res=>{
+    const r=new FileReader();
+    r.onload=e=>res(parseCSV(decodeJP(e.target.result), hasHeader));
+    r.readAsArrayBuffer(file);
+  });
+}
+
+/* ── 店舗マスター（スプレッドシート読込） ── */
+async function loadShopFromSheet() {
+  const statusEl = document.getElementById('status-shop');
+  const barSub   = document.getElementById('bar-sub');
+  statusEl.style.color = 'var(--mid)';
+  statusEl.textContent = '⏳ 読込中...';
+  updateShopBar(false, null, 0, null); // ローディング中は未登録表示
+  try {
+    const res = await fetch(SHEET_CSV_URL);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    const data = parseCSV(text, true);
+    if (!data.length) throw new Error('データが空です');
+    shopData = data;
+
+    // AMマップをshop_main_listから構築（A列=AM, D列=店舗コード）
+    amMap = {};
+    for (const r of data) {
+      const code = (r['店舗コード']||'').trim();
+      const am   = (r['AM']||'').trim();
+      if (code && am) amMap[code] = am;
+    }
+    _amDebugMsg = 'rows=' + data.length + ', amMap件数=' + Object.keys(amMap).length;
+    try { localStorage.setItem(AM_KEY, JSON.stringify(amMap)); } catch(e) {}
+    const now = new Date();
+    const savedAt = toYMD(now)+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    try {
+      localStorage.setItem(SHOP_KEY, JSON.stringify(data));
+      localStorage.setItem(SHOP_INFO_KEY, JSON.stringify({filename:'スプレッドシート', count:data.length, savedAt}));
+    } catch(e) {}
+    updateShopBar(true, 'スプレッドシート', data.length, savedAt);
+    buildAmButtons();
+    statusEl.style.color = 'var(--green)';
+    statusEl.textContent = '✅ ' + data.length + '店舗 読込完了（' + savedAt + '）';
+    setTimeout(()=>document.getElementById('shop-panel').classList.remove('open'), 800);
+  } catch(e) {
+    // 失敗時はlocalStorageのキャッシュを使用
+    try {
+      const raw = localStorage.getItem(SHOP_KEY);
+      if (raw) {
+        shopData = JSON.parse(raw);
+        const info = JSON.parse(localStorage.getItem(SHOP_INFO_KEY)||'{}');
+        // amMapもキャッシュから復元
+        try { const am = localStorage.getItem(AM_KEY); if(am) amMap = JSON.parse(am); } catch(e2){}
+        updateShopBar(true, 'キャッシュ', shopData.length, info.savedAt);
+        buildAmButtons();
+        statusEl.style.color = 'var(--orange)';
+        statusEl.textContent = '⚠️ 取得失敗。キャッシュを使用中（' + (info.savedAt||'') + '）';
+      } else {
+        statusEl.style.color = 'var(--red-soft)';
+        statusEl.textContent = '❌ 読込失敗: ' + e.message;
+      }
+    } catch(e2) {}
+  }
+  checkReady();
+  // ★デバッグ：amMap読み込み結果を画面に表示
+  setTimeout(()=>{
+    const el = document.getElementById('am-debug-out');
+    if (!el) return;
+    const keys = Object.keys(amMap);
+    el.style.display = 'block';
+    if (keys.length > 0) {
+      el.style.background = '#f0faf5';
+      el.style.borderColor = 'var(--green)';
+      el.textContent = '✅ amMap読込OK: ' + keys.length + '件\n例: ' + keys.slice(0,5).map(k=>k+'→'+amMap[k]).join(', ');
+    } else {
+      el.style.background = '#fff5f0';
+      el.style.borderColor = 'var(--red-soft)';
+      el.textContent = '❌ amMapが空です。\n詳細: ' + (_amDebugMsg||'不明');
+    }
+  }, 2000);
+}
+
+/* ── 取引データ（複数可） ── */
+document.getElementById('file-txn').addEventListener('change', async function() {
+  const files=Array.from(this.files); if(!files.length) return;
+  txnFiles = files;
+  // 全ファイルをパースして統合キャッシュを作成
+  const merged = {};
+  for (const file of files) {
+    const rows = await readFileAsync(file);
+    for (const r of rows) {
+      const id=r['取引ID']; if(!id) continue;
+      if (!merged[id]) merged[id]={id, datetime:r['取引日時'], storeCode:r['店舗コード'], staff:r['スタッフ名'], amount:0};
+      const a=parseInt(r['合計'])||0;
+      if (a>merged[id].amount) merged[id].amount=a;
+    }
+  }
+  txnCache = merged;
+  const label = files.length===1 ? files[0].name.slice(0,38) : files.length+'ファイル選択済み';
+  const now=new Date();
+  const savedAt=toYMD(now)+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  // localStorage に保存（5MB超えはスキップ）
+  try {
+    const json = JSON.stringify(merged);
+    if (json.length < 4.5*1024*1024) {
+      localStorage.setItem(TXN_KEY, json);
+      localStorage.setItem(TXN_INFO_KEY, JSON.stringify({label, savedAt}));
+    } else {
+      localStorage.removeItem(TXN_KEY);
+      localStorage.removeItem(TXN_INFO_KEY);
+    }
+  } catch(e) {}
+  updateTxnCard(label, savedAt);
+  checkReady();
+});
+
+function updateTxnCard(label, savedAt) {
+  document.getElementById('card-txn').classList.add('loaded');
+  document.getElementById('status-txn').textContent='✅ '+label+(savedAt?'　'+savedAt:'');
+  document.getElementById('status-txn').style.color='var(--green)';
+}
+
+function checkReady() {
+  document.getElementById('run-btn').disabled = !(shopData && (txnFiles.length || txnCache));
+}
+
+/* ── 営業時間パーサー ── */
+function parseHours(raw, dateStr) {
+  if (!raw||raw==='nan') return {open:'10:00',close:'21:00'};
+  raw=raw.replace(/[ｰ‐]/g,'-').replace(/　/g,' ');
+  const dow=new Date(dateStr).getDay();
+  const dt=document.getElementById('day-type').value;
+  let isWD=dow>=1&&dow<=5, isSat=dow===6, isWE=dow===0||dow===6;
+  if (dt==='weekday')  {isWD=true; isSat=false; isWE=false;}
+  if (dt==='weekend')  {isWD=false; isSat=false; isWE=true;}
+  if (dt==='saturday') {isWD=false; isSat=true; isWE=true;}
+  const segs=raw.split(/[、，,\n]/);
+  let open=null, close=null, fallback=null;
+  for (const seg of segs) {
+    const tm=seg.match(/(\d{1,2}:\d{2})\s*[-~～]\s*(\d{1,2}:\d{2})/);
+    if (!tm) continue;
+    const [,o,c]=tm;
+    const hasWD=/平日|月|火|水|木/.test(seg), hasSat=/土(?!日)/.test(seg), hasWE=/土日|日祝|土日祝/.test(seg);
+    if (!hasWD&&!hasSat&&!hasWE) {
+      // 曜日指定なし → フォールバック候補としてのみ保持（曜日指定ありに負ける）
+      if (!fallback) fallback={o,c};
+    } else if (isWD&&hasWD)           {open=o;close=c;}
+    else if (isSat&&hasSat&&!hasWE)   {open=o;close=c;}
+    else if (isWE&&hasWE)             {open=o;close=c;}
+    else if (isWE&&hasSat&&!hasWD)    {open=o;close=c;}
+  }
+  // 曜日指定ありにマッチしなかった場合はフォールバックを使用
+  if (!open && fallback)       {open=fallback.o; close=fallback.c;}
+  if (!open) {
+    const m=raw.match(/(\d{1,2}:\d{2})\s*[-~～]\s*(\d{1,2}:\d{2})/);
+    if (m) {open=m[1];close=m[2];} else {open='10:00';close='21:00';}
+  }
+  return {open,close};
+}
+function toMin(t)    { const [h,m]=t.split(':').map(Number); return h*60+m; }
+function dtToMin(dt) { const p=dt.trim().split(/\s+/); if(p.length<2) return 0; const [h,m]=p[1].split(':').map(Number); return h*60+(m||0); }
+
+/* ── ランキング生成 ── */
+async function runRanking() {
+  hideError();
+
+  // キャッシュ済みデータを使用（新規ファイルがあれば再パース）
+  let txnMap = txnCache || {};
+  if (txnFiles.length) {
+    txnMap = txnCache || {};
+  }
+  if (!Object.keys(txnMap).length) { showError('取引データがありません'); return; }
+
+  const shopMap={}, hoursMap={};
+  for (const r of shopData) {
+    const code=(r['店舗コード']||'').trim(); if(!code) continue;
+    shopMap[code]=(r['店舗名']||code).trim();
+    hoursMap[code]=(r['営業時間［開発］?EC-CUBE 店舗詳細営業時間［開発］?EC-CUBE 店舗詳細']||r['営業時間［開発］?EC-CUBE 店舗詳細']||'').trim();
+  }
+
+  // デバッグパネル：全店舗の営業時間を表示
+  const dateStr = document.getElementById('target-date').value || new Date().toISOString().slice(0,10);
+  const tbody = document.getElementById('debug-tbody');
+  tbody.innerHTML = '';
+
+  // ヘッダー一覧を先頭行に表示
+  if (shopData.length > 0) {
+    const keys = Object.keys(shopData[0]);
+    const hdr = document.createElement('tr');
+    hdr.innerHTML = `<td colspan="4" style="padding:8px 12px;border-bottom:1px solid var(--border);background:#fffbe6;color:var(--dark);word-break:break-all;font-size:0.72rem;">
+      📋 CSVヘッダー列名一覧：${keys.map(k=>`[${k}]`).join(' / ')}
+    </td>`;
+    tbody.appendChild(hdr);
+  }
+
+  Object.entries(hoursMap).sort((a,b)=>(shopMap[a[0]]||'').localeCompare(shopMap[b[0]]||'')).forEach(([code, raw])=>{
+    const parsed = parseHours(raw, dateStr);
+    const rawShort = (raw||'（空）').replace(/\n/g,' ').slice(0,60);
+    const ok = raw && raw!=='nan';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="padding:6px 12px;border-bottom:1px solid var(--border);color:var(--mid);font-size:0.72rem;">${code}</td>
+      <td style="padding:6px 12px;border-bottom:1px solid var(--border);color:var(--dark);">${shopMap[code]||'（名称なし）'}</td>
+      <td style="padding:6px 12px;border-bottom:1px solid var(--border);color:var(--mid);max-width:260px;word-break:break-all;">${rawShort}</td>
+      <td style="padding:6px 12px;border-bottom:1px solid var(--border);text-align:center;font-weight:500;color:${ok?'var(--green)':'var(--orange)'};">${parsed.open}〜${parsed.close}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('debug-panel').style.display = 'block';
+
+  if (currentMode==='daily') {
+    runDaily(txnMap, shopMap, hoursMap);
+  } else {
+    runMonthly(txnMap, shopMap, hoursMap);
+  }
+}
+
+/* ── 日次ランキング ── */
+function runDaily(txnMap, shopMap, hoursMap) {
+  const dateStr = document.getElementById('target-date').value;
+  if (!dateStr) { showError('日付を選択してください'); return; }
+  const topN = Math.max(1, parseInt(document.getElementById('top-n-daily').value)||10);
+  const prefix = dateStr.replace(/-/g,'/');
+  const txns = Object.values(txnMap).filter(t=>t.datetime&&t.datetime.startsWith(prefix));
+  if (!txns.length) { showError('対象日（'+prefix+'）の取引データが見つかりません'); return; }
+
+  const enriched = txns.filter(t=>t.amount>0).map(t=>{
+    const hrs=parseHours(hoursMap[t.storeCode], dateStr);
+    const txMin=dtToMin(t.datetime), opMin=toMin(hrs.open), clMin=toMin(hrs.close);
+    return {...t, storeName:shopMap[t.storeCode]||t.storeCode, openTime:hrs.open, closeTime:hrs.close, txMin, opMin, clMin, afterOpen:txMin-opMin, beforeClose:clMin-txMin};
+  }).filter(t=>t.txMin>=t.opMin); // 開店前を除外
+
+  const first=[...enriched].sort((a,b)=>a.afterOpen-b.afterOpen).slice(0,topN);
+  const last =[...enriched].sort((a,b)=>b.txMin-a.txMin).slice(0,topN);
+
+  document.getElementById('first-label').textContent=`🌅 ファーストレジ TOP${topN}`;
+  document.getElementById('last-label').textContent=`🌙 ラストレジ TOP${topN}`;
+
+  _lastFirst=enriched; _lastLast=enriched; _lastMode='daily';
+  buildText(enriched.sort((a,b)=>a.afterOpen-b.afterOpen).slice(0,topN),
+            enriched.sort((a,b)=>b.txMin-a.txMin).slice(0,topN), prefix, topN, 'daily');
+  applyAmFilter();
+  showResults();
+}
+
+/* ── 月間ランキング ── */
+function runMonthly(txnMap, shopMap, hoursMap) {
+  const startStr = document.getElementById('start-date').value;
+  const endStr   = document.getElementById('end-date').value;
+  if (!startStr||!endStr) { showError('開始日と終了日を設定してください'); return; }
+  if (startStr>endStr)    { showError('開始日は終了日以前にしてください'); return; }
+  const topN = Math.max(1, parseInt(document.getElementById('top-n-monthly').value)||20);
+
+  const startPfx = startStr.replace(/-/g,'/');
+  const endPfx   = endStr.replace(/-/g,'/');
+
+  // 期間内の取引を抽出
+  const txns = Object.values(txnMap).filter(t=>{
+    if (!t.datetime) return false;
+    const d = t.datetime.slice(0,10); // "2026/03/13"
+    return d>=startPfx && d<=endPfx;
+  });
+  if (!txns.length) { showError(`${startPfx}〜${endPfx} の取引データが見つかりません`); return; }
+
+  // 月間モード：スタッフ別に「最も早いファーストレジ差分」「最も遅いラストレジ時刻」で集計
+  // ただし営業時間は各日の曜日で決まるため、各取引で個別に計算
+  const staffFirst={}, staffLast={};
+  for (const t of txns) {
+    if (t.amount<=0) continue;
+    const dateStr = t.datetime.slice(0,10).replace(/\//g,'-'); // 曜日判定用
+    const hrs = parseHoursMonthly(hoursMap[t.storeCode], dateStr);
+    const txMin = dtToMin(t.datetime);
+    const opMin = toMin(hrs.open);
+    const clMin = toMin(hrs.close);
+    if (txMin < opMin) continue; // 開店前を除外
+    const afterOpen   = txMin - opMin;
+    const beforeClose = clMin - txMin;
+    const key = (t.staff||'不明') + '___' + (shopMap[t.storeCode]||t.storeCode);
+
+    // ファースト：afterOpenが最小のものを記録
+    if (!staffFirst[key] || afterOpen < staffFirst[key].afterOpen) {
+      staffFirst[key] = {...t, storeName:shopMap[t.storeCode]||t.storeCode, openTime:hrs.open, closeTime:hrs.close, txMin, opMin, clMin, afterOpen, beforeClose};
+    }
+    // ラスト：txMinが最大のものを記録
+    if (!staffLast[key] || txMin > staffLast[key].txMin) {
+      staffLast[key] = {...t, storeName:shopMap[t.storeCode]||t.storeCode, openTime:hrs.open, closeTime:hrs.close, txMin, opMin, clMin, afterOpen, beforeClose};
+    }
+  }
+
+  const first = Object.values(staffFirst).sort((a,b)=>a.afterOpen-b.afterOpen).slice(0,topN);
+  const last  = Object.values(staffLast ).sort((a,b)=>b.txMin-a.txMin).slice(0,topN);
+
+  const periodLabel = startPfx.slice(0,7).replace('/','/') + ' 〜 ' + endPfx;
+  document.getElementById('first-label').textContent=`🌅 ファーストレジ TOP${topN}（月間）`;
+  document.getElementById('last-label').textContent=`🌙 ラストレジ TOP${topN}（月間）`;
+
+  _lastFirst=Object.values(staffFirst); _lastLast=Object.values(staffLast); _lastMode='monthly';
+  buildText(first, last, `${startPfx}〜${endPfx}`, topN, 'monthly');
+  applyAmFilter();
+  showResults();
+}
+
+// 月間用：曜日を各日付から判定（day-typeは無視して自動判定）
+function parseHoursMonthly(raw, dateStr) {
+  if (!raw||raw==='nan') return {open:'10:00',close:'21:00'};
+  raw=raw.replace(/[ｰ‐]/g,'-').replace(/　/g,' ');
+  const dow=new Date(dateStr).getDay();
+  const isWD=dow>=1&&dow<=5, isSat=dow===6, isWE=dow===0||dow===6;
+  const segs=raw.split(/[、，,\n]/);
+  let open=null, close=null, fallback=null;
+  for (const seg of segs) {
+    const tm=seg.match(/(\d{1,2}:\d{2})\s*[-~～]\s*(\d{1,2}:\d{2})/);
+    if (!tm) continue;
+    const [,o,c]=tm;
+    const hasWD=/平日|月|火|水|木/.test(seg), hasSat=/土(?!日)/.test(seg), hasWE=/土日|日祝|土日祝/.test(seg);
+    if (!hasWD&&!hasSat&&!hasWE) {
+      if (!fallback) fallback={o,c};
+    } else if (isWD&&hasWD)           {open=o;close=c;}
+    else if (isSat&&hasSat&&!hasWE)   {open=o;close=c;}
+    else if (isWE&&hasWE)             {open=o;close=c;}
+    else if (isWE&&hasSat&&!hasWD)    {open=o;close=c;}
+  }
+  if (!open && fallback)       {open=fallback.o; close=fallback.c;}
+  if (!open) {
+    const m=raw.match(/(\d{1,2}:\d{2})\s*[-~～]\s*(\d{1,2}:\d{2})/);
+    if (m) {open=m[1];close=m[2];} else {open='10:00';close='21:00';}
+  }
+  return {open,close};
+}
+
+/* ── カード描画 ── */
+function renderCards(id, ranking, type, mode) {
+  const wrap = (typeof id==='string') ? document.getElementById(id) : id;
+  wrap.innerHTML='';
+  ranking.forEach((t,i)=>{
+    const rank=i+1, isTop3=rank<=3;
+    const emoji=rank===1?'👑':'🎖️';
+    let diffTxt, diffCls;
+    if (type==='first') {
+      const d=t.afterOpen;
+      diffTxt=d<0?`開店${-d}分前`:d===0?'開店時刻ちょうど':`開店${d}分後`;
+      diffCls='early';
+    } else {
+      const d=t.beforeClose;
+      diffTxt=d<0?`閉店${-d}分後`:d===0?'閉店時刻ちょうど':`閉店${d}分前`;
+      diffCls='late';
+    }
+    if (mode==='monthly') diffCls='monthly'; // 月間は色を抑える
+    const timeStr=t.datetime.split(' ')[1]?.slice(0,5)||'--:--';
+    const dateStr=mode==='monthly' ? t.datetime.slice(0,10)+' ' : '';
+    const card=document.createElement('div');
+    card.className='rank-card'+(isTop3?' rank-'+rank:'');
+    card.style.animationDelay=(i*0.04)+'s';
+    card.innerHTML=`
+      <div class="rank-badge">${isTop3?`<span class="rank-emoji">${emoji}</span>`:String(rank)}</div>
+      <div class="rank-info">
+        <div class="rank-time">${dateStr}${timeStr}</div>
+        <div class="rank-diff ${diffCls}">${diffTxt}　（${t.openTime}〜${t.closeTime}）</div>
+        <div class="rank-staff">${t.staff}</div>
+        <div class="rank-store">${t.storeName}</div>
+      </div>
+      <div class="rank-amount">${t.amount.toLocaleString()}円</div>
+    `;
+    wrap.appendChild(card);
+  });
+}
+
+/* ── チャット用テキスト ── */
+function buildText(first, last, periodLabel, topN, mode) {
+  const modeLabel = mode==='monthly' ? '【月間】' : '';
+  let txt=`${modeLabel}【${periodLabel}】\n\n`;
+  txt+=`━━━━━━━━━━━━━━━━━━\n🌅 ファーストレジランキング TOP${topN}\n━━━━━━━━━━━━━━━━━━\n\n`;
+  first.forEach((t,i)=>{
+    const rank=i+1;
+    const medal=rank===1?'👑':'🎖️';
+    const d=t.afterOpen;
+    const diffTxt=d<0?`開店${-d}分前`:d===0?'開店時刻ちょうど':`開店${d}分後`;
+    const timeStr=t.datetime.split(' ')[1]?.slice(0,5)||'--:--';
+    const datePrefix = mode==='monthly' ? t.datetime.slice(0,10)+' ' : '';
+    txt+=`${medal} ${String(rank).padStart(2)}位：${datePrefix}${timeStr}（${diffTxt}）\n`;
+    txt+=`${t.staff}　${t.amount.toLocaleString()}円\n`;
+    txt+=`${t.storeName}\n\n`;
+  });
+  txt+=`━━━━━━━━━━━━━━━━━━\n🌙 ラストレジランキング TOP${topN}\n━━━━━━━━━━━━━━━━━━\n\n`;
+  last.forEach((t,i)=>{
+    const rank=i+1;
+    const medal=rank===1?'👑':'🎖️';
+    const d=t.beforeClose;
+    const diffTxt=d<0?`閉店${-d}分後`:d===0?'閉店時刻ちょうど':`閉店${d}分前`;
+    const timeStr=t.datetime.split(' ')[1]?.slice(0,5)||'--:--';
+    const datePrefix = mode==='monthly' ? t.datetime.slice(0,10)+' ' : '';
+    txt+=`${medal} ${String(rank).padStart(2)}位：${datePrefix}${timeStr}（${diffTxt}）\n`;
+    txt+=`${t.staff}　${t.amount.toLocaleString()}円\n`;
+    txt+=`${t.storeName}\n\n`;
+  });
+  document.getElementById('text-output').textContent=txt;
+}
+
+/* ── エリアマネージャーフィルター ── */
+let _lastFirst=[], _lastLast=[], _lastMode='daily', _selectedAM=null;
+
+// シート読み込み完了後にプルダウンを構築
+function buildAmButtons() {
+  const allAMs = [...new Set(Object.values(amMap))].filter(Boolean).sort();
+  const panel  = document.getElementById('am-filter-panel');
+  const sel    = document.getElementById('am-select');
+  // 既存オプションをリセット（全体オプションだけ残す）
+  sel.innerHTML = '<option value="">🌐 全体（絞り込みなし）</option>';
+  if (!allAMs.length) { panel.style.display='none'; return; }
+  panel.style.display='block';
+  allAMs.forEach(am => {
+    const opt = document.createElement('option');
+    opt.value = am; opt.textContent = '👤 ' + am;
+    sel.appendChild(opt);
+  });
+}
+
+function onAmChange() {
+  _selectedAM = document.getElementById('am-select').value || null;
+  if (_lastFirst.length) applyAmFilter(); // ランキング生成済みなら即反映
+}
+
+// ランキング結果をAMフィルターで絞り込んで表示
+function applyAmFilter() {
+  const am = _selectedAM;
+  const topN_el = document.getElementById(_lastMode==='daily' ? 'top-n-daily' : 'top-n-monthly');
+  const topN = Math.max(1, parseInt(topN_el.value)||10);
+
+  const srcFirst = am ? _lastFirst.filter(t=>(amMap[t.storeCode]||'')===am) : _lastFirst;
+  const srcLast  = am ? _lastLast .filter(t=>(amMap[t.storeCode]||'')===am) : _lastLast;
+
+  const first = [...srcFirst].sort((a,b)=>a.afterOpen-b.afterOpen).slice(0,topN);
+  const last  = [...srcLast ].sort((a,b)=>b.txMin-a.txMin).slice(0,topN);
+
+  const label = am || '';
+  document.getElementById('first-label').textContent =
+    `🌅 ${label ? label+' ' : ''}ファーストレジ TOP${topN}${_lastMode==='monthly'?'（月間）':''}`;
+  document.getElementById('last-label').textContent =
+    `🌙 ${label ? label+' ' : ''}ラストレジ TOP${topN}${_lastMode==='monthly'?'（月間）':''}`;
+
+  renderCards('first-list', first, 'first', _lastMode);
+  renderCards('last-list',  last,  'last',  _lastMode);
+}
+
+function showResults() {
+  document.getElementById('results').style.display='block';
+  setTimeout(()=>document.getElementById('results').scrollIntoView({behavior:'smooth'}), 50);
+  // ランキング生成後は選択中AMで即フィルター適用済み（applyAmFilterは生成側で呼ぶ）
+}
+
+function copyText() {
+  navigator.clipboard.writeText(document.getElementById('text-output').textContent).then(()=>{
+    const btn=document.getElementById('copy-btn');
+    btn.textContent='✅ コピー完了！'; btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='コピー'; btn.classList.remove('copied');}, 2200);
+  });
+}
+function showError(msg) { const el=document.getElementById('error-msg'); el.textContent='⚠️ '+msg; el.style.display='block'; }
+function hideError() { document.getElementById('error-msg').style.display='none'; }
+
+</script>
+</body>
+</html>
