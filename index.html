@@ -269,7 +269,6 @@
   </div>
 
   <!-- エリアマネージャーフィルター -->
-  <div id="am-debug-out" style="display:none;background:#fffbe6;border:1px solid #e8a020;border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:0.75rem;font-family:monospace;white-space:pre-wrap;word-break:break-all;"></div>
   <div class="settings-panel" id="am-filter-panel" style="display:none;">
     <div class="settings-row">
       <div class="setting-group">
@@ -341,7 +340,7 @@ const SHOP_INFO_KEY = 'yogibo_shop_info_v1';
 const TXN_KEY       = 'yogibo_txn_data_v1';
 const TXN_INFO_KEY  = 'yogibo_txn_info_v1';
 const AM_KEY        = 'yogibo_am_map_v1';
-let shopData = null, txnFiles = [], txnCache = null, amMap = {}, _amDebugMsg = '';
+let shopData = null, txnFiles = [], txnCache = null, amMap = {};
 let currentMode = 'daily';
 
 /* ── 初期化 ── */
@@ -491,7 +490,6 @@ async function loadShopFromSheet() {
       const am   = (r['AM']||'').trim();
       if (code && am) amMap[code] = am;
     }
-    _amDebugMsg = 'rows=' + data.length + ', amMap件数=' + Object.keys(amMap).length;
     try { localStorage.setItem(AM_KEY, JSON.stringify(amMap)); } catch(e) {}
     const now = new Date();
     const savedAt = toYMD(now)+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
@@ -524,22 +522,6 @@ async function loadShopFromSheet() {
     } catch(e2) {}
   }
   checkReady();
-  // ★デバッグ：amMap読み込み結果を画面に表示
-  setTimeout(()=>{
-    const el = document.getElementById('am-debug-out');
-    if (!el) return;
-    const keys = Object.keys(amMap);
-    el.style.display = 'block';
-    if (keys.length > 0) {
-      el.style.background = '#f0faf5';
-      el.style.borderColor = 'var(--green)';
-      el.textContent = '✅ amMap読込OK: ' + keys.length + '件\n例: ' + keys.slice(0,5).map(k=>k+'→'+amMap[k]).join(', ');
-    } else {
-      el.style.background = '#fff5f0';
-      el.style.borderColor = 'var(--red-soft)';
-      el.textContent = '❌ amMapが空です。\n詳細: ' + (_amDebugMsg||'不明');
-    }
-  }, 2000);
 }
 
 /* ── 取引データ（複数可） ── */
@@ -698,8 +680,6 @@ function runDaily(txnMap, shopMap, hoursMap) {
   document.getElementById('last-label').textContent=`🌙 ラストレジ TOP${topN}`;
 
   _lastFirst=enriched; _lastLast=enriched; _lastMode='daily';
-  buildText(enriched.sort((a,b)=>a.afterOpen-b.afterOpen).slice(0,topN),
-            enriched.sort((a,b)=>b.txMin-a.txMin).slice(0,topN), prefix, topN, 'daily');
   applyAmFilter();
   showResults();
 }
@@ -756,7 +736,6 @@ function runMonthly(txnMap, shopMap, hoursMap) {
   document.getElementById('last-label').textContent=`🌙 ラストレジ TOP${topN}（月間）`;
 
   _lastFirst=Object.values(staffFirst); _lastLast=Object.values(staffLast); _lastMode='monthly';
-  buildText(first, last, `${startPfx}〜${endPfx}`, topN, 'monthly');
   applyAmFilter();
   showResults();
 }
@@ -827,9 +806,10 @@ function renderCards(id, ranking, type, mode) {
 }
 
 /* ── チャット用テキスト ── */
-function buildText(first, last, periodLabel, topN, mode) {
+function buildText(first, last, periodLabel, topN, mode, amLabel='') {
   const modeLabel = mode==='monthly' ? '【月間】' : '';
-  let txt=`${modeLabel}【${periodLabel}】\n\n`;
+  const amTxt = amLabel ? `【${amLabel}エリア】` : '';
+  let txt=`${modeLabel}${amTxt}【${periodLabel}】\n\n`;
   txt+=`━━━━━━━━━━━━━━━━━━\n🌅 ファーストレジランキング TOP${topN}\n━━━━━━━━━━━━━━━━━━\n\n`;
   first.forEach((t,i)=>{
     const rank=i+1;
@@ -901,6 +881,12 @@ function applyAmFilter() {
 
   renderCards('first-list', first, 'first', _lastMode);
   renderCards('last-list',  last,  'last',  _lastMode);
+
+  // チャット用テキストもフィルター結果に連動
+  const periodLabel = _lastMode==='daily'
+    ? document.getElementById('target-date').value.replace(/-/g,'/')
+    : document.getElementById('start-date').value.replace(/-/g,'/')+'〜'+document.getElementById('end-date').value.replace(/-/g,'/');
+  buildText(first, last, periodLabel, topN, _lastMode, label);
 }
 
 function showResults() {
